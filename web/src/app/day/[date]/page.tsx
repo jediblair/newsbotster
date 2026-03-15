@@ -1,8 +1,9 @@
-import { notFound }      from 'next/navigation';
-import { db }            from '@/lib/db';
-import Masthead          from '@/app/components/Masthead';
-import FrontPageClient   from '@/app/FrontPageClient';
-import type { Article }  from '@/app/components/ArticleCard';
+import { notFound }                              from 'next/navigation';
+import { db }                                    from '@/lib/db';
+import Masthead                                   from '@/app/components/Masthead';
+import HomeClient                                 from '@/app/HomeClient';
+import { IranSidebar, fetchIranArticles }         from '@/app/components/IranSidebar';
+import type { Article }                           from '@/app/components/ArticleCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,30 +52,48 @@ export default async function DayPage({ params }: Props) {
   const date = parseDate(params.date);
   if (!date) notFound();
 
-  // Reject future dates
   const todayStr = toIsoDate(new Date());
   if (params.date > todayStr) notFound();
 
-  const articles = await fetchArticles(date);
-
   const prev = new Date(date);
   prev.setUTCDate(prev.getUTCDate() - 1);
-
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + 1);
   const nextStr = toIsoDate(next);
 
+  const [articles, iranArticles, sourcesResult, tagsResult] = await Promise.all([
+    fetchArticles(date),
+    fetchIranArticles(),
+    db.query<{ id: number; name: string; color: string }>(
+      `SELECT id, name, color FROM sources WHERE active = TRUE ORDER BY priority DESC, name ASC`,
+    ),
+    db.query<{ tag: string }>(
+      `SELECT t.tag, COUNT(*) AS cnt
+       FROM articles
+       CROSS JOIN unnest(content_tags) AS t(tag)
+       WHERE COALESCE(published_date, inferred_date, created_at) >= NOW() - INTERVAL '7 days'
+         AND t.tag != ''
+       GROUP BY t.tag
+       ORDER BY cnt DESC
+       LIMIT 40`,
+    ),
+  ]);
+
   return (
     <main className="page-wrap">
       <Masthead date={date} editionLabel="Archive Edition" />
-      <FrontPageClient
-        initial={articles}
-        breaking={[]}
-        date={params.date}
-        prevDay={toIsoDate(prev)}
-        nextDay={nextStr <= todayStr ? nextStr : null}
-        iranArticles={[]}
-      />
+      <div className="container-fluid px-3 py-3" style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <HomeClient
+          initial={articles}
+          breaking={[]}
+          date={params.date}
+          prevDay={toIsoDate(prev)}
+          sources={sourcesResult.rows}
+          availableTags={tagsResult.rows.map(r => r.tag)}
+          sidebar={<IranSidebar articles={iranArticles} />}
+          nextDay={nextStr <= todayStr ? nextStr : null}
+        />
+      </div>
     </main>
   );
 }

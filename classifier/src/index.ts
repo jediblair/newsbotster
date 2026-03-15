@@ -6,8 +6,9 @@ const db = new Pool({
   max: 3,
 });
 
-const BATCH_SIZE     = 10;
-const INTERVAL_MS    = 30_000; // run every 30 seconds
+const BATCH_SIZE     = 50;
+const CONCURRENCY    = 5;      // parallel Ollama requests per batch
+const INTERVAL_MS    = 5_000;  // run every 5 seconds
 
 /** Load classifier tags from app_settings, falling back to built-in defaults. */
 async function loadClassifierTags(): Promise<string[]> {
@@ -31,9 +32,9 @@ async function classifyBatch(): Promise<void> {
   const validTags = await loadClassifierTags();
 
   const { rows } = await db.query<{
-    id: string; title: string; summary: string | null;
+    id: string; title: string; summary: string | null; content: string | null;
   }>(
-    `SELECT id, title, summary FROM articles
+    `SELECT id, title, summary, content FROM articles
      WHERE classified = FALSE
        AND (summary IS NOT NULL OR title IS NOT NULL)
      LIMIT $1`,
@@ -41,29 +42,35 @@ async function classifyBatch(): Promise<void> {
   );
 
   if (rows.length === 0) return;
-  console.log(`[classifier] Classifying ${rows.length} articles with ${validTags.length} tags...`);
+  console.log(`[classifier] Classifying ${rows.length} articles (concurrency ${CONCURRENCY}, tags: ${validTags.length})...`);
 
-  for (const article of rows) {
-    try {
-      const { bias, tags } = await classifyArticle(
-        article.title,
-        article.summary ?? article.title,
-        validTags,
-      );
+  // Process in parallel with a concurrency cap
+  const queue = [...rows];
+  async function worker() {
+    while (queue.length > 0) {
+      const article = queue.shift()!;
+      try {
+        const bodyText = (article.content && article.content.length > (article.summary?.length ?? 0))
+          ? article.content.slice(0, 4000)
+          : (article.summary ?? article.title);
 
-      await db.query(
-        `UPDATE articles SET bias_tag = $2, classified = TRUE, content_tags = $3 WHERE id = $1`,
-        [article.id, bias, tags],
-      );
-    } catch (err) {
-      console.error(`[classifier] Failed on article ${article.id}:`, err);
-      // Mark as classified anyway to avoid retry loops
-      await db.query(
-        `UPDATE articles SET bias_tag = 'unknown', classified = TRUE WHERE id = $1`,
-        [article.id],
-      );
+        const { bias, tags } = await classifyArticle(article.title, bodyText, validTags);
+
+        await db.query(
+          `UPDATE articles SET bias_tag = $2, classified = TRUE, content_tags = $3 WHERE id = $1`,
+          [article.id, bias, tags],
+        );
+      } catch (err) {
+        console.error(`[classifier] Failed on article ${article.id}:`, err);
+        await db.query(
+          `UPDATE articles SET bias_tag = 'unknown', classified = TRUE WHERE id = $1`,
+          [article.id],
+        );
+      }
     }
   }
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, rows.length) }, worker));
 }
 
 async function main(): Promise<void> {

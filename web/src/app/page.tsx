@@ -1,19 +1,11 @@
-import { db }            from '@/lib/db';
-import Masthead          from './components/Masthead';
-import FrontPageClient   from './FrontPageClient';
-import type { Article }  from './components/ArticleCard';
+import { db }                         from '@/lib/db';
+import Masthead                        from './components/Masthead';
+import HomeClient                      from './HomeClient';
+import { IranSidebar, fetchIranArticles } from './components/IranSidebar';
+import type { Article }               from './components/ArticleCard';
 
 // No static prerendering — page queries live DB data
 export const dynamic = 'force-dynamic';
-
-export interface SidebarArticle {
-  id: string;
-  title: string;
-  url: string;
-  published_date: string | null;
-  source_name: string;
-  source_color: string;
-}
 
 async function fetchArticles(date: Date, page = 1, limit = 30): Promise<Article[]> {
   const start = new Date(date);
@@ -47,30 +39,6 @@ function toIsoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-async function fetchIranArticles(): Promise<SidebarArticle[]> {
-  const { rows } = await db.query<SidebarArticle>(
-    `SELECT
-       a.id, a.title, a.url,
-       COALESCE(a.published_date, a.inferred_date, a.created_at) AS published_date,
-       s.name AS source_name, s.color AS source_color
-     FROM articles a
-     JOIN sources s ON a.source_id = s.id
-     WHERE s.active = TRUE
-       AND (
-         'iran'     = ANY(a.content_tags) OR
-         'war'      = ANY(a.content_tags) AND a.title ILIKE '%iran%' OR
-         a.title    ILIKE '%iran%' OR
-         a.summary  ILIKE '%iran%'
-       )
-       AND COALESCE(a.published_date, a.inferred_date, a.created_at) >= NOW() - INTERVAL '7 days'
-     ORDER BY
-       (s.name = 'NBC News') DESC,
-       COALESCE(a.published_date, a.inferred_date, a.created_at) DESC
-     LIMIT 20`,
-  );
-  return rows;
-}
-
 export default async function HomePage() {
   const today    = new Date();
   const todayStr = toIsoDate(today);
@@ -78,7 +46,7 @@ export default async function HomePage() {
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const [initial, breaking, iranArticles] = await Promise.all([
+  const [initial, breaking, iranArticles, sourcesResult, tagsResult] = await Promise.all([
     fetchArticles(today, 1, 30),
     db.query<Article>(
       `SELECT a.id, a.title, a.url, s.name AS source_name, s.color AS source_color
@@ -88,19 +56,38 @@ export default async function HomePage() {
        ORDER BY COALESCE(a.published_date, a.inferred_date, a.created_at) DESC LIMIT 5`,
     ).then(r => r.rows as unknown as Article[]),
     fetchIranArticles(),
+    db.query<{ id: number; name: string; color: string }>(
+      `SELECT id, name, color FROM sources WHERE active = TRUE ORDER BY priority DESC, name ASC`,
+    ),
+    db.query<{ tag: string }>(
+      `SELECT t.tag, COUNT(*) AS cnt
+       FROM articles
+       CROSS JOIN unnest(content_tags) AS t(tag)
+       WHERE COALESCE(published_date, inferred_date, created_at) >= NOW() - INTERVAL '7 days'
+         AND t.tag != ''
+       GROUP BY t.tag
+       ORDER BY cnt DESC
+       LIMIT 40`,
+    ),
   ]);
+
+  const sources       = sourcesResult.rows;
+  const availableTags = tagsResult.rows.map(r => r.tag);
 
   return (
     <main className="page-wrap">
       <Masthead date={today} />
-      <FrontPageClient
-        initial={initial}
-        breaking={breaking}
-        date={todayStr}
-        prevDay={toIsoDate(yesterday)}
-        nextDay={null}
-        iranArticles={iranArticles}
-      />
+      <div className="container-fluid px-3 py-3" style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <HomeClient
+          initial={initial}
+          breaking={breaking}
+          date={todayStr}
+          prevDay={toIsoDate(yesterday)}
+          sources={sources}
+          availableTags={availableTags}
+          sidebar={<IranSidebar articles={iranArticles} />}
+        />
+      </div>
     </main>
   );
 }

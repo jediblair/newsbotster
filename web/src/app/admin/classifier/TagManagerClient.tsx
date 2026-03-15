@@ -7,11 +7,13 @@ interface Props {
 }
 
 export default function TagManagerClient({ initialTags }: Props) {
-  const [tags, setTags]     = useState<string[]>(initialTags);
-  const [input, setInput]   = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved]   = useState(false);
-  const [error, setError]   = useState('');
+  const [tags, setTags]             = useState<string[]>(initialTags);
+  const [input, setInput]           = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
+  const [error, setError]           = useState('');
+  const [reclassing, setReclassing] = useState(false);
+  const [reclassMsg, setReclassMsg] = useState('');
 
   function addTag() {
     const tag = input.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -47,13 +49,29 @@ export default function TagManagerClient({ initialTags }: Props) {
     }
   }
 
+  async function reclassifyAll() {
+    if (!confirm('This will reset classification on all articles and requeue them. Continue?')) return;
+    setReclassing(true);
+    setReclassMsg('');
+    try {
+      const res = await fetch('/api/admin/reclassify', { method: 'POST' });
+      const j = await res.json() as { queued?: number; error?: string };
+      if (!res.ok) throw new Error(j.error ?? 'Reclassify failed');
+      setReclassMsg(`${j.queued ?? 0} articles queued for reclassification.`);
+    } catch (e) {
+      setReclassMsg(`Error: ${(e as Error).message}`);
+    } finally {
+      setReclassing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <p className="text-sm text-gray-600 mb-4">
           These tags are used by the AI classifier to label every article&apos;s topics.
           Changes take effect on the next classification batch (within 30 seconds).
-          Existing articles won&apos;t be re-classified automatically.
+          Use <strong>Reclassify All</strong> below to reprocess existing articles.
         </p>
 
         {/* Current tags */}
@@ -116,6 +134,32 @@ export default function TagManagerClient({ initialTags }: Props) {
         <code className="bg-gray-100 px-1 rounded">iran</code>,{' '}
         <code className="bg-gray-100 px-1 rounded">nato</code>).
         The classifier will pick 1–4 matching tags per article.
+      </div>
+
+      {/* Reclassify all */}
+      <div className="border border-gray-200 rounded p-4 bg-gray-50 space-y-3">
+        <div>
+          <p className="font-semibold text-sm">Reclassify All Articles</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Resets bias and topic tags on every article and requeues them for the classifier worker.
+            Use this after changing your tag list or to apply improved classification.
+            The worker processes 10 articles every 30 seconds.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={reclassifyAll}
+            disabled={reclassing}
+            className="bg-red-700 text-white px-5 py-2 text-sm uppercase tracking-wide hover:bg-red-800 disabled:opacity-50 rounded"
+          >
+            {reclassing ? 'Queuing…' : 'Reclassify All'}
+          </button>
+          {reclassMsg && (
+            <span className={`text-sm ${reclassMsg.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
+              {reclassMsg}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

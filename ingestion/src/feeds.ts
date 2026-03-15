@@ -35,12 +35,17 @@ export async function parseRssFeed(feedUrl: string): Promise<ParsedArticle[]> {
       const rawSummary = item.summary ?? item.contentSnippet ?? '';
 
       // Extract image URL from media fields or content HTML
+      // Reject anything that isn't a static image (video streams, mp4, m3u8, etc.)
+      const VIDEO_EXT = /\.(m3u8|mp4|mov|avi|webm|mpd|ts)(\?|$)/i;
+      const isImageUrl = (u: string | null): u is string =>
+        !!u && !VIDEO_EXT.test(u);
+
       let imageUrl: string | null = null;
       const media = (item as unknown as Record<string, {$?: {url?: string}}>).mediaContent ?? (item as unknown as Record<string, {$?: {url?: string}}>).mediaThumbnail;
-      if (media?.$?.url) imageUrl = sanitizeUrl(media.$.url);
+      if (media?.$?.url) { const u = sanitizeUrl(media.$.url); if (isImageUrl(u)) imageUrl = u; }
       if (!imageUrl) {
         const match = rawContent.match(/<img[^>]+src=["']([^"']+)["']/i);
-        if (match) imageUrl = sanitizeUrl(match[1]);
+        if (match) { const u = sanitizeUrl(match[1]); if (isImageUrl(u)) imageUrl = u; }
       }
 
       return {

@@ -34,14 +34,14 @@ export async function GET(req: NextRequest) {
     });
 
     if (!upstream.ok) {
-      return new NextResponse('Upstream fetch failed', { status: 502 });
+      return new NextResponse(null, { status: 204 });
     }
 
     const contentType = upstream.headers.get('content-type') ?? '';
     const mimeBase = contentType.split(';')[0].trim().toLowerCase();
 
     if (!ALLOWED_CONTENT_TYPES.has(mimeBase)) {
-      return new NextResponse('Not an image', { status: 415 });
+      return new NextResponse(null, { status: 204 });
     }
 
     const buffer = await upstream.arrayBuffer();
@@ -60,6 +60,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error('[image proxy] fetch error:', err);
-    return new NextResponse('Failed to fetch image', { status: 502 });
+    return new NextResponse(null, { status: 204 });
   }
 }
