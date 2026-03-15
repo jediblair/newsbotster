@@ -65,10 +65,222 @@ body {
 
 /* Article card */
 .article-card {
-  border-bottom: 1px solid var(--column-rule);
   padding-bottom: 1rem;
   margin-bottom: 1rem;
 }
+.article-card--lead {
+  border-bottom: none;
+  padding-bottom: 1.5rem;
+}
+.article-card--secondary {
+  border-bottom: 1px solid var(--column-rule);
+}
+
+/* ── Page wrapper ─────────────────────────── */
+.page-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* ── Masthead extras ──────────────────────── */
+.masthead-edition {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-align: right;
+  padding-bottom: 0.25rem;
+}
+.masthead-tagline {
+  font-size: 0.82rem;
+  font-style: italic;
+  margin-top: 0.25rem;
+}
+
+/* ── Newspaper grid ───────────────────────── */
+.newspaper-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  border-top: 2px solid var(--ink);
+  margin-top: 1rem;
+}
+@media (min-width: 640px) {
+  .newspaper-grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.col-full {
+  grid-column: 1 / -1;
+  border-bottom: 2px solid var(--ink);
+  padding: 1.5rem 0;
+}
+.col-two-thirds {
+  padding: 1rem 1.5rem 1rem 0;
+  border-right: 1px solid var(--column-rule);
+}
+.col-one-third {
+  padding: 1rem 0 1rem 1.5rem;
+}
+
+/* ── Sidebar ──────────────────────────────── */
+.sidebar-heading {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+.brief-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.article-brief {
+  border-bottom: 1px solid var(--column-rule);
+  padding: 0.5rem 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.brief-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 600;
+  color: var(--ink);
+}
+.brief-title:hover { text-decoration: underline; }
+
+/* ── Breaking news ────────────────────────── */
+.breaking-banner {
+  background: var(--ink);
+  color: white;
+  padding: 0.4rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+.breaking-banner a { color: #fbbf24; text-decoration: underline; }
+.breaking-label {
+  display: inline-block;
+  background: #dc2626;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ── Article image ────────────────────────── */
+.article-image {
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+  margin-bottom: 0.75rem;
+}
+.article-image--sm {
+  max-height: 180px;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Article meta row ─────────────────────── */
+.article-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+}
+.bias-tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  font-variant: small-caps;
+}
+.article-time {
+  font-size: 0.68rem;
+  color: #888;
+}
+
+/* ── Headlines ────────────────────────────── */
+.article-headline {
+  font-family: 'Playfair Display', Georgia, serif;
+  line-height: 1.15;
+  margin-bottom: 0.35rem;
+}
+.article-headline a { color: var(--ink); }
+.article-headline a:hover { text-decoration: underline; }
+.article-headline--lead {
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  font-weight: 900;
+  line-height: 1.08;
+}
+.article-headline--secondary {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* ── Byline + summary ─────────────────────── */
+.article-byline {
+  font-size: 0.72rem;
+  font-style: italic;
+  color: #666;
+  margin-bottom: 0.3rem;
+}
+.article-summary {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #333;
+  text-align: justify;
+}
+
+/* ── Below fold grid ──────────────────────── */
+.below-fold {
+  border-top: 1px solid var(--column-rule);
+  margin-top: 1rem;
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+.below-fold .col-one-third {
+  border-right: 1px solid var(--column-rule);
+  padding: 1rem;
+}
+.below-fold .col-one-third:last-child { border-right: none; }
+
+/* ── Load more + doom-scroll buttons ─────── */
+.scroll-break-btn,
+.load-more-btn {
+  border: 1px solid var(--ink);
+  padding: 0.4rem 1.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+}
+.scroll-break-btn:hover,
+.load-more-btn:hover { background: var(--ink); color: white; }
+.load-more-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.load-more-row { text-align: center; padding: 1.5rem 0; }
+
+/* ── Day navigation ───────────────────────── */
+.day-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 2px solid var(--ink);
+  padding: 0.75rem 0;
+  margin-top: 2rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.day-nav-link { color: var(--ink); text-decoration: underline; }
+.day-nav-date { color: #666; }
 
 /* Doom-scroll break */
 .scroll-break {
@@ -80,6 +292,61 @@ body {
   font-variant: small-caps;
   letter-spacing: 0.15em;
   background: white;
+}
+
+/* Article body text — newspaper style */
+.article-body {
+  margin-top: 0.5rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #222;
+}
+
+.article-body p {
+  margin-bottom: 0.5em;
+  text-align: justify;
+  hyphens: auto;
+  text-indent: 1.2em;
+}
+.article-body p:first-child {
+  text-indent: 0;
+}
+
+/* Multi-column only for lead with substantial text */
+.article-body--columns {
+  column-count: 2;
+  column-gap: 1.8rem;
+  column-rule: 1px solid var(--column-rule);
+}
+
+/* Drop cap — only on column layout (which means enough text) */
+.article-body--columns p:first-child::first-letter {
+  float: left;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 3em;
+  font-weight: 900;
+  line-height: 0.82;
+  padding-right: 5px;
+  padding-top: 3px;
+  color: var(--ink);
+}
+
+/* Read more link */
+.read-more {
+  display: inline-block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: #666;
+}
+.read-more:hover { color: var(--ink); text-decoration: underline; }
+
+/* Brief summary */
+.brief-summary {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #555;
+  margin-top: 0.15rem;
 }
 
 /* Admin panel */

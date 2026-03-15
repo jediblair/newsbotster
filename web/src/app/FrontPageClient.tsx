@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import Link                       from 'next/link';
 import ArticleCard, { Article }   from './components/ArticleCard';
 
-const ABOVE_FOLD  = 6;   // stories rendered immediately
+const ABOVE_FOLD  = 10;  // stories rendered immediately
 const PAGE_SIZE   = 12;  // additional stories per "load more"
 
 interface Props {
@@ -44,8 +44,8 @@ export default function FrontPageClient({ initial, breaking, date, prevDay, next
   const moreStories = articles.slice(ABOVE_FOLD);
 
   const lead      = topStories[0];
-  const secondary = topStories.slice(1, 3);
-  const briefs    = topStories.slice(3);
+  const secondary = topStories.slice(1, 4);
+  const briefs    = topStories.slice(4);
 
   return (
     <>

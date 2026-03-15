@@ -19,6 +19,7 @@ async function fetchArticles(date: Date, page = 1, limit = 20): Promise<Article[
        a.author,
        COALESCE(a.published_date, a.inferred_date, a.created_at) AS published_date,
        a.bias_tag, a.is_breaking,
+       LEFT(a.content, 2000) AS content,
        s.name AS source_name, s.color AS source_color
      FROM articles a
      JOIN sources  s ON a.source_id = s.id

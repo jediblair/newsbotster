@@ -82,6 +82,7 @@ services:
       - ./data/ollama:/root/.ollama
     networks:
       - backend
+      - external
     # Uncomment to enable GPU support:
     # deploy:
     #   resources:

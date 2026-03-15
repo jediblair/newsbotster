@@ -7,6 +7,7 @@ export interface Article {
   id: number;
   title: string;
   summary: string | null;
+  content: string | null;
   url: string;
   image_url: string | null;
   author: string | null;
@@ -40,8 +41,22 @@ function relativeTime(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+/** Get display paragraphs: prefer rich content, fall back to summary */
+function getBodyParagraphs(article: Article, maxParas: number): string[] {
+  const contentText = (article.content ?? '').trim();
+  const summaryText = (article.summary ?? '').trim();
+  // Use content if it's substantially more than the summary
+  if (contentText.length > summaryText.length + 80) {
+    return contentText.split('\n').filter(p => p.trim().length > 0).slice(0, maxParas);
+  }
+  // Otherwise, use summary as body text
+  if (summaryText) return [summaryText];
+  return [];
+}
+
 export default function ArticleCard({ article, variant = 'secondary' }: ArticleCardProps) {
-  const biasColor = article.bias_tag ? (BIAS_COLOURS[article.bias_tag] ?? '#6b7280') : undefined;
+  const showBias = article.bias_tag && article.bias_tag !== 'unknown';
+  const biasColor = showBias ? (BIAS_COLOURS[article.bias_tag!] ?? '#6b7280') : undefined;
 
   if (variant === 'brief') {
     return (
@@ -51,28 +66,33 @@ export default function ArticleCard({ article, variant = 'secondary' }: ArticleC
         <a href={article.url} target="_blank" rel="noopener noreferrer" className="brief-title">
           {article.title}
         </a>
+        {article.summary && (
+          <p className="brief-summary">{article.summary}</p>
+        )}
         <span className="article-time">{article.published_date ? relativeTime(article.published_date) : ''}</span>
       </li>
     );
   }
+
+  const paragraphs = getBodyParagraphs(article, variant === 'lead' ? 8 : 3);
+  const hasMultiPara = paragraphs.length >= 2 && paragraphs.join('').length > 200;
 
   return (
     <article className={`article-card article-card--${variant}`}>
       {article.is_breaking && (
         <span className="breaking-label">Breaking</span>
       )}
-      {article.image_url && variant === 'lead' && (
-        /* Images are proxied via /api/image to hide user IPs */
+      {article.image_url && (variant === 'lead' || variant === 'secondary') && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`/api/image?url=${encodeURIComponent(article.image_url)}`}
           alt=""
-          className="article-image"
+          className={variant === 'lead' ? 'article-image' : 'article-image article-image--sm'}
         />
       )}
       <div className="article-meta">
         <SourceBadge name={article.source_name} color={article.source_color} />
-        {biasColor && (
+        {showBias && biasColor && (
           <span className="bias-tag" style={{ color: biasColor }} title={`Bias: ${article.bias_tag}`}>
             {article.bias_tag}
           </span>
@@ -85,8 +105,23 @@ export default function ArticleCard({ article, variant = 'secondary' }: ArticleC
         </a>
       </h2>
       {article.author && <p className="article-byline">By {article.author}</p>}
-      {article.summary && (
-        <p className="article-summary">{article.summary}</p>
+
+      {paragraphs.length > 0 && (
+        <div className={
+          variant === 'lead' && hasMultiPara
+            ? 'article-body article-body--columns'
+            : 'article-body'
+        }>
+          {paragraphs.map((para, i) => <p key={i}>{para.trim()}</p>)}
+          <a
+            href={article.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="read-more"
+          >
+            Read full story ›
+          </a>
+        </div>
       )}
     </article>
   );
