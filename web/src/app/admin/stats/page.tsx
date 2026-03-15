@@ -1,6 +1,17 @@
 export const dynamic = 'force-dynamic';
 import { db } from '@/lib/db';
 
+/** Safely format any DB-returned date value as a locale string */
+function fmtDate(val: unknown): string {
+  if (val == null) return '—';
+  try {
+    const d = val instanceof Date ? val : new Date(String(val));
+    return isNaN(d.getTime()) ? String(val) : d.toLocaleString();
+  } catch {
+    return String(val);
+  }
+}
+
 interface OverviewRow {
   total_articles: string;
   with_content:   string;
@@ -178,7 +189,7 @@ export default async function StatsPage() {
     'unclassified': '#d1d5db',
   };
 
-  const maxDayCount = Math.max(...dayRows.map(r => parseInt(r.count)));
+  const maxDayCount = dayRows.length > 0 ? Math.max(...dayRows.map(r => parseInt(r.count) || 0)) : 0;
 
   return (
     <div className="space-y-10">
@@ -255,7 +266,7 @@ export default async function StatsPage() {
                   <td className="text-right font-mono text-gray-500">{r.with_content}</td>
                   <td className="text-right font-mono text-gray-500">{r.with_images}</td>
                   <td className="text-xs text-gray-400">
-                    {r.latest ? new Date(r.latest).toLocaleString() : '—'}
+                    {fmtDate(r.latest)}
                   </td>
                 </tr>
               ))}
@@ -310,8 +321,8 @@ export default async function StatsPage() {
                   <td className="text-right font-mono text-green-700">{r.success}</td>
                   <td className="text-right font-mono text-red-600">{r.errors}</td>
                   <td className="text-right font-mono text-gray-500">{r.avg_new ?? '—'}</td>
-                  <td className="text-xs text-gray-400">
-                    {r.last_run ? new Date(r.last_run).toLocaleString() : '—'}
+                  <td className="text-xs text-gray-400 whitespace-nowrap">
+                    {fmtDate(r.last_run)}
                   </td>
                 </tr>
               ))}
@@ -347,7 +358,7 @@ export default async function StatsPage() {
                   </td>
                   <td className="text-xs text-gray-600 max-w-xs truncate">{r.message}</td>
                   <td className="text-xs text-gray-400 whitespace-nowrap">
-                    {new Date(r.created_at).toLocaleString()}
+                    {fmtDate(r.created_at)}
                   </td>
                 </tr>
               ))}
@@ -400,7 +411,7 @@ export default async function StatsPage() {
                       </span>
                     </td>
                     <td className="text-xs text-gray-400 whitespace-nowrap">
-                      {r.classified_at ? new Date(r.classified_at).toLocaleString() : '—'}
+                      {fmtDate(r.classified_at)}
                     </td>
                   </tr>
                 );

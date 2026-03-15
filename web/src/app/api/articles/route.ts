@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
          a.id, a.title, a.summary, a.url, a.image_url,
          a.author, a.published_date, a.inferred_date,
          a.bias_tag, a.is_breaking,
-         LEFT(a.content, 2000) AS content,
+         COALESCE(a.content_tags, '{}') AS content_tags,
          s.name AS source_name, s.domain AS source_domain,
          s.color AS source_color, s.font AS source_font,
          s.priority AS source_priority, s.category AS source_category

@@ -83,14 +83,13 @@ services:
     networks:
       - backend
       - external
-    # Uncomment to enable GPU support:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   # ─── nginx Reverse Proxy ──────────────────────────────────────────────────
   nginx:

@@ -1,27 +1,19 @@
 'use client';
 
-import Link      from 'next/link';
-import SourceBadge from './SourceBadge';
-
 export interface Article {
   id: number;
   title: string;
   summary: string | null;
   content: string | null;
+  content_tags: string[] | null;
   url: string;
   image_url: string | null;
   author: string | null;
-  published_date: string | null;
+  published_date: string | Date | null;
   is_breaking: boolean;
   bias_tag: string | null;
   source_name: string;
   source_color: string;
-}
-
-interface ArticleCardProps {
-  article: Article;
-  /** 'lead' = big top story, 'secondary' = medium story, 'brief' = compact list item */
-  variant?: 'lead' | 'secondary' | 'brief';
 }
 
 const BIAS_COLOURS: Record<string, string> = {
@@ -32,8 +24,10 @@ const BIAS_COLOURS: Record<string, string> = {
   'right':        '#dc2626',
 };
 
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
+function relativeTime(val: string | Date | null): string {
+  if (!val) return '';
+  const diff = Date.now() - new Date(val as string).getTime();
+  if (isNaN(diff)) return '';
   const mins = Math.floor(diff / 60_000);
   if (mins < 60)  return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
@@ -41,88 +35,84 @@ function relativeTime(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-/** Get display paragraphs: prefer rich content, fall back to summary */
-function getBodyParagraphs(article: Article, maxParas: number): string[] {
-  const contentText = (article.content ?? '').trim();
-  const summaryText = (article.summary ?? '').trim();
-  // Use content if it's substantially more than the summary
-  if (contentText.length > summaryText.length + 80) {
-    return contentText.split('\n').filter(p => p.trim().length > 0).slice(0, maxParas);
-  }
-  // Otherwise, use summary as body text
-  if (summaryText) return [summaryText];
-  return [];
-}
-
-export default function ArticleCard({ article, variant = 'secondary' }: ArticleCardProps) {
-  const showBias = article.bias_tag && article.bias_tag !== 'unknown';
-  const biasColor = showBias ? (BIAS_COLOURS[article.bias_tag!] ?? '#6b7280') : undefined;
-
-  if (variant === 'brief') {
-    return (
-      <li className="article-brief">
-        <SourceBadge name={article.source_name} color={article.source_color} />
-        {' '}
-        <a href={article.url} target="_blank" rel="noopener noreferrer" className="brief-title">
-          {article.title}
-        </a>
-        {article.summary && (
-          <p className="brief-summary">{article.summary}</p>
-        )}
-        <span className="article-time">{article.published_date ? relativeTime(article.published_date) : ''}</span>
-      </li>
-    );
-  }
-
-  const paragraphs = getBodyParagraphs(article, variant === 'lead' ? 8 : 3);
-  const hasMultiPara = paragraphs.length >= 2 && paragraphs.join('').length > 200;
+export default function ArticleCard({ article }: { article: Article }) {
+  const showBias  = article.bias_tag && article.bias_tag !== 'unknown';
+  const biasColor = showBias ? (BIAS_COLOURS[article.bias_tag!] ?? '#6b7280') : null;
+  const tags      = article.content_tags?.filter(Boolean) ?? [];
+  const excerpt   = (article.summary ?? article.content ?? '').slice(0, 180).trimEnd();
 
   return (
-    <article className={`article-card article-card--${variant}`}>
-      {article.is_breaking && (
-        <span className="breaking-label">Breaking</span>
-      )}
-      {article.image_url && (variant === 'lead' || variant === 'secondary') && (
+    <div className="card h-100 shadow-sm border-0" style={{ borderRadius: '8px', overflow: 'hidden' }}>
+      {article.image_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={`/api/image?url=${encodeURIComponent(article.image_url)}`}
+          className="card-img-top"
           alt=""
-          className={variant === 'lead' ? 'article-image' : 'article-image article-image--sm'}
+          style={{ height: '160px', objectFit: 'cover' }}
         />
       )}
-      <div className="article-meta">
-        <SourceBadge name={article.source_name} color={article.source_color} />
-        {showBias && biasColor && (
-          <span className="bias-tag" style={{ color: biasColor }} title={`Bias: ${article.bias_tag}`}>
-            {article.bias_tag}
-          </span>
-        )}
-        <span className="article-time">{article.published_date ? relativeTime(article.published_date) : ''}</span>
-      </div>
-      <h2 className={`article-headline article-headline--${variant}`}>
-        <a href={article.url} target="_blank" rel="noopener noreferrer">
-          {article.title}
-        </a>
-      </h2>
-      {article.author && <p className="article-byline">By {article.author}</p>}
 
-      {paragraphs.length > 0 && (
-        <div className={
-          variant === 'lead' && hasMultiPara
-            ? 'article-body article-body--columns'
-            : 'article-body'
-        }>
-          {paragraphs.map((para, i) => <p key={i}>{para.trim()}</p>)}
+      <div className="card-body d-flex flex-column p-3">
+        {/* Source + time row */}
+        <div className="d-flex align-items-center justify-content-between mb-2 gap-2">
+          <span
+            className="badge text-white text-truncate"
+            style={{ backgroundColor: article.source_color, fontSize: '0.6rem', maxWidth: '55%' }}
+          >
+            {article.source_name}
+          </span>
+          <span className="text-muted" style={{ fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
+            {article.is_breaking && (
+              <span className="badge bg-danger me-1" style={{ fontSize: '0.55rem' }}>BREAKING</span>
+            )}
+            {relativeTime(article.published_date)}
+          </span>
+        </div>
+
+        {/* Headline */}
+        <h6 className="card-title mb-2 fw-bold" style={{ fontSize: '0.92rem', lineHeight: '1.35' }}>
           <a
             href={article.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="read-more"
+            className="stretched-link text-decoration-none"
+            style={{ color: 'inherit' }}
           >
-            Read full story ›
+            {article.title}
           </a>
-        </div>
-      )}
-    </article>
+        </h6>
+
+        {/* Excerpt */}
+        {excerpt && (
+          <p className="card-text mb-2 text-muted" style={{ fontSize: '0.8rem', lineHeight: '1.45' }}>
+            {excerpt}{article.summary && article.summary.length > 180 ? '…' : ''}
+          </p>
+        )}
+
+        {/* Tags + bias at bottom */}
+        {(tags.length > 0 || showBias) && (
+          <div className="mt-auto pt-2 d-flex flex-wrap gap-1">
+            {tags.map(tag => (
+              <span
+                key={tag}
+                className="badge"
+                style={{ backgroundColor: '#e9ecef', color: '#495057', fontSize: '0.58rem' }}
+              >
+                {tag}
+              </span>
+            ))}
+            {showBias && biasColor && (
+              <span
+                className="badge ms-auto"
+                style={{ backgroundColor: biasColor + '22', color: biasColor, fontSize: '0.58rem' }}
+              >
+                {article.bias_tag}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

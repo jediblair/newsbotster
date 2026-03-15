@@ -6,7 +6,7 @@ import type { Article }  from './components/ArticleCard';
 // No static prerendering — page queries live DB data
 export const dynamic = 'force-dynamic';
 
-async function fetchArticles(date: Date, page = 1, limit = 20): Promise<Article[]> {
+async function fetchArticles(date: Date, page = 1, limit = 30): Promise<Article[]> {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
@@ -19,7 +19,7 @@ async function fetchArticles(date: Date, page = 1, limit = 20): Promise<Article[
        a.author,
        COALESCE(a.published_date, a.inferred_date, a.created_at) AS published_date,
        a.bias_tag, a.is_breaking,
-       LEFT(a.content, 2000) AS content,
+       COALESCE(a.content_tags, '{}') AS content_tags,
        s.name AS source_name, s.color AS source_color
      FROM articles a
      JOIN sources  s ON a.source_id = s.id
@@ -46,7 +46,7 @@ export default async function HomePage() {
   yesterday.setDate(yesterday.getDate() - 1);
 
   const [initial, breaking] = await Promise.all([
-    fetchArticles(today, 1, 20),
+    fetchArticles(today, 1, 30),
     db.query<Article>(
       `SELECT a.id, a.title, a.url, s.name AS source_name, s.color AS source_color
        FROM articles a JOIN sources s ON a.source_id = s.id

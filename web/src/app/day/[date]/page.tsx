@@ -20,7 +20,7 @@ function toIsoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-async function fetchArticles(date: Date, page = 1, limit = 20): Promise<Article[]> {
+async function fetchArticles(date: Date, page = 1, limit = 30): Promise<Article[]> {
   const start = new Date(date);
   const end   = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
@@ -32,6 +32,7 @@ async function fetchArticles(date: Date, page = 1, limit = 20): Promise<Article[
        a.author,
        COALESCE(a.published_date, a.inferred_date, a.created_at) AS published_date,
        a.bias_tag, a.is_breaking,
+       COALESCE(a.content_tags, '{}') AS content_tags,
        s.name AS source_name, s.color AS source_color
      FROM articles a
      JOIN sources  s ON a.source_id = s.id

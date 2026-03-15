@@ -1,5 +1,5 @@
-import { Pool }          from 'pg';
-import { classifyBias }  from './bias';
+import { Pool }           from 'pg';
+import { classifyArticle } from './bias';
 
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -28,14 +28,14 @@ async function classifyBatch(): Promise<void> {
 
   for (const article of rows) {
     try {
-      const bias = await classifyBias(
+      const { bias, tags } = await classifyArticle(
         article.title,
         article.summary ?? article.title,
       );
 
       await db.query(
-        `UPDATE articles SET bias_tag = $2, classified = TRUE WHERE id = $1`,
-        [article.id, bias],
+        `UPDATE articles SET bias_tag = $2, classified = TRUE, content_tags = $3 WHERE id = $1`,
+        [article.id, bias, tags],
       );
     } catch (err) {
       console.error(`[classifier] Failed on article ${article.id}:`, err);
