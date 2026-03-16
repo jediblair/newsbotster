@@ -6,13 +6,17 @@ A self-hosted news aggregator that displays articles in a classic newspaper layo
 
 ## Features
 
-- **Newspaper front page** — UnifrakturMaguntia masthead, multi-column layout, breaking news banner, doom-scroll break
-- **RSS ingestion** — crawls 15 pre-seeded sources every 2 minutes; scrapes full article content via cheerio; falls back to archive.ph / Wayback Machine for paywalled content
-- **Bias classification** — uses a local Ollama LLM (llama3.2) to tag articles left / center-left / center / center-right / right; falls back to Claude Haiku if Ollama is unavailable
+- **Newspaper front page** — UnifrakturMaguntia masthead, Bootstrap grid layout, breaking news banner, doom-scroll break
+- **RSS ingestion** — crawls 15 pre-seeded sources every 2 minutes; scrapes full article content via cheerio; falls back to archive.ph / Wayback Machine for paywalled content; video stream URLs are rejected at parse time so only real images are stored
+- **Bias + topic classification** — local Ollama LLM (`llama3.2`) tags each article with a political bias (left → right) and a set of topic tags drawn from the article's full body text (up to 4,000 chars); falls back to Claude Haiku if Ollama is unavailable; batches of 50 at concurrency 5 every 5 seconds
+- **Configurable classifier tags** — manage the topic tag vocabulary from the admin panel; changes take effect on the next batch without a restart
+- **Filter panel** — left sidebar lets readers filter by source and/or topic tag; selections persist when navigating between archive days via URL query params
+- **Iran conflict sidebar** — right sidebar surfaces the latest Iran war coverage on every page (front page and day archive)
+- **Image proxy** — `GET /api/image?url=` proxies external images with SSRF protection and content-type allow-listing
 - **Historical archive** — browse any past day at `/day/YYYY-MM-DD`
-- **Admin panel** — manage sources, trigger on-demand crawls, monitor crawler status
+- **Admin panel** — manage sources; trigger on-demand crawls; monitor crawler status; manage topic tags; manage users; view ingestion stats
 - **User auth** — register/login; first registered user is automatically admin; bcrypt password hashing; HTTP-only session cookies
-- **Security** — SSRF protection on all outbound fetches, content sanitisation, nginx rate limiting, strict CSP headers
+- **Security** — SSRF protection on all outbound fetches, content sanitisation, nginx rate limiting with local-IP exemption, strict CSP headers
 
 ---
 
@@ -20,7 +24,7 @@ A self-hosted news aggregator that displays articles in a classic newspaper layo
 
 | Layer | Technology |
 |---|---|
-| Web app | Next.js 14 (App Router, TypeScript, Tailwind CSS) |
+| Web app | Next.js 14 (App Router, TypeScript, Bootstrap 5 + Tailwind CSS) |
 | Database | PostgreSQL 16 |
 | Ingestion worker | Node.js 20 + TypeScript |
 | Classifier worker | Node.js 20 + TypeScript |
@@ -39,14 +43,14 @@ news/
 ├── db/
 │   └── init.sql                # Schema + 15 pre-seeded news sources
 ├── nginx/
-│   ├── nginx.conf              # Rate limiting, reverse proxy
+│   ├── nginx.conf              # Rate limiting (geo block exempts local IPs), reverse proxy
 │   └── security-headers.conf  # CSP, X-Frame-Options, etc.
 ├── ingestion/                  # RSS crawler worker
 │   └── src/
 │       ├── index.ts            # Entry point, DB retry loop
 │       ├── scheduler.ts        # Cron every 2 min, max 5 concurrent sources
 │       ├── crawler.ts          # Main crawl logic per source
-│       ├── feeds.ts            # RSS parsing (rss-parser)
+│       ├── feeds.ts            # RSS parsing; filters video stream URLs from image fields
 │       ├── scraper.ts          # Cheerio-based article scraping
 │       ├── archive.ts          # archive.ph / Wayback Machine fallback
 │       ├── discovery.ts        # Auto-detect RSS URL for a domain
@@ -54,30 +58,39 @@ news/
 │       ├── security.ts         # URL validation, rate limiter
 │       ├── sanitize.ts         # HTML sanitisation
 │       └── db.ts               # pg Pool singleton
-├── classifier/                 # Bias classification worker
+├── classifier/                 # Bias + topic classification worker
 │   └── src/
-│       ├── index.ts            # Polls every 30s for unclassified articles
+│       ├── index.ts            # Polls every 5s; batch 50; concurrency 5
 │       └── bias.ts             # Ollama → Claude Haiku fallback
 ├── web/                        # Next.js application
 │   └── src/
 │       ├── app/
 │       │   ├── page.tsx                    # Home page (today's articles)
-│       │   ├── FrontPageClient.tsx         # Load-more, scroll-break, day nav
+│       │   ├── HomeClient.tsx              # Filter state + URL sync; wraps layout
+│       │   ├── FilterPanel.tsx             # Left sidebar: filter by source + topic tag
+│       │   ├── FrontPageClient.tsx         # Load-more, scroll-break, filter-aware day nav
 │       │   ├── day/[date]/page.tsx         # Historical archive view
 │       │   ├── login/page.tsx              # Login / register
 │       │   ├── admin/
 │       │   │   ├── layout.tsx              # Auth guard (redirects non-admin)
 │       │   │   ├── page.tsx                # Dashboard (stats, recent jobs)
+│       │   │   ├── classifier/             # Classifier tag management + reclassify-all
 │       │   │   ├── sources/                # Source management CRUD
-│       │   │   └── crawlers/               # Crawler status + controls
+│       │   │   ├── crawlers/               # Crawler status + controls
+│       │   │   ├── stats/                  # Ingestion statistics
+│       │   │   └── users/                  # User management
 │       │   ├── api/
 │       │   │   ├── auth/{login,register,logout,me}/
-│       │   │   ├── articles/               # GET with date/page/limit params
+│       │   │   ├── articles/               # GET with date/page/limit/sources/tags params
+│       │   │   ├── image/                  # Image proxy (SSRF-safe, content-type allow-list)
+│       │   │   ├── admin/{reclassify,settings}/  # Classifier admin endpoints
 │       │   │   ├── sources/                # CRUD + discover + crawl-now
+│       │   │   ├── users/                  # User management
 │       │   │   └── crawlers/{status,crawl-all}/
 │       │   └── components/
 │       │       ├── Masthead.tsx
 │       │       ├── ArticleCard.tsx         # lead / secondary / brief variants
+│       │       ├── IranSidebar.tsx         # Iran conflict right sidebar
 │       │       └── SourceBadge.tsx
 │       └── lib/
 │           ├── db.ts                       # pg Pool with hot-reload guard
@@ -145,6 +158,8 @@ Go to [http://localhost:5333/admin](http://localhost:5333/admin). From here you 
 - Add, edit, or remove news sources
 - Trigger an immediate crawl of any source (or all sources at once)
 - Monitor crawler status per source
+- Manage classifier topic tags and trigger a full reclassification of all articles
+- Manage user accounts
 
 ---
 
@@ -173,21 +188,21 @@ The following sources are seeded into the database on first run and will begin c
 
 | Source | Category | Bias |
 |---|---|---|
-| The Guardian | General | Left |
-| The Independent | General | Center-left |
 | BBC News | General | Center |
-| Reuters | General | Center |
-| Associated Press | General | Center |
-| Al Jazeera English | General | Center |
-| The Times | General | Center-right |
-| The Telegraph | General | Right |
-| Financial Times | Business | Center |
-| The Economist | Business | Center-right |
-| New Scientist | Science | Center |
-| Ars Technica | Technology | Center |
-| The Register | Technology | Center |
-| Jacobin | Politics | Left |
-| Spiked | Politics | Right |
+| The Guardian | General | Center-left |
+| RNZ | General | Center |
+| Stuff | General | Center |
+| ABC Australia | General | Center |
+| SMH | General | Center |
+| Al Jazeera | General | Center |
+| NBC News | General | Center |
+| interest.co.nz | Business | Center |
+| Ars Technica | Tech | Center |
+| The Register | Tech | Center |
+| The Verge | Tech | Center-left |
+| Wired | Tech | Center-left |
+| ServeTheHome | Homelab | Center |
+| StorageReview | Homelab | Center |
 
 Additional sources can be added via the admin panel. The **Auto-detect** button will probe a domain for its RSS feed URL automatically.
 
@@ -250,10 +265,11 @@ curl -X POST http://localhost:5333/api/crawlers/crawl-all \
 
 ### Classification pipeline
 
-1. The **classifier** polls every 30 seconds for unclassified articles in batches of 10.
-2. It sends the article title and summary to **Ollama** (`llama3.2`) with a prompt asking for a bias tag.
-3. If Ollama is unavailable, it falls back to **Claude Haiku** via the Anthropic API.
-4. The `bias_tag` column is updated and `classified` is set to `true`.
+1. The **classifier** polls every 5 seconds for unclassified articles in batches of 50, running up to 5 articles concurrently.
+2. It sends the article title and up to 4,000 characters of body content (falling back to summary, then title) to **Ollama** (`llama3.2`) with a prompt requesting a political bias tag and a list of matching topic tags.
+3. Topic tags are loaded from the `app_settings` table (editable via the admin panel) and fall back to a built-in default set.
+4. If Ollama is unavailable, it falls back to **Claude Haiku** via the Anthropic API.
+5. The `bias_tag` and `content_tags` columns are updated and `classified` is set to `true`.
 
 ### Authentication
 

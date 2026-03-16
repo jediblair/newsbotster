@@ -139,6 +139,19 @@ CREATE TABLE user_preferences (
 );
 CREATE INDEX idx_user_prefs_user_id ON user_preferences(user_id);
 
+-- ─── App Settings ──────────────────────────────────────────────────────────
+CREATE TABLE app_settings (
+  key        TEXT      NOT NULL PRIMARY KEY,
+  value      JSONB     NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Seed: default classifier topic tags
+INSERT INTO app_settings (key, value) VALUES (
+  'classifier_tags',
+  '["au","business","china","climate","conflict","crime","economy","elections","energy","entertainment","finance","health","homelab","iran","middle-east","military","networking","nz","opinion","politics","russia","science","sport","tech","technology","uk","ukraine","us","war","world"]'::jsonb
+);
+
 -- ─── Seed: Default News Sources ──────────────────────────────
 INSERT INTO sources (name, domain, rss_url, ingestion_method, color, font, bias_default, category, priority, crawl_interval_mins) VALUES
   ('BBC News',         'bbc.com',            'https://feeds.bbci.co.uk/news/rss.xml',           'rss',    '#c8102e', 'Georgia, serif',          'center',       'general', 8, 60),
@@ -148,7 +161,7 @@ INSERT INTO sources (name, domain, rss_url, ingestion_method, color, font, bias_
   ('ABC Australia',    'abc.net.au',         'https://www.abc.net.au/news/feed/51120/rss.xml',   'rss',    '#00539b', 'ABC Sans, sans-serif',    'center',       'general', 7, 60),
   ('SMH',              'smh.com.au',         'https://www.smh.com.au/rss/feed.xml',              'rss',    '#003057', 'Times New Roman, serif',  'center',       'general', 6, 60),
   ('Al Jazeera',       'aljazeera.com',      'https://www.aljazeera.com/xml/rss/all.xml',        'rss',    '#c8a427', 'Arial, sans-serif',       'unknown',      'general', 6, 60),
-  ('CNN',              'cnn.com',            'http://rss.cnn.com/rss/edition.rss',               'rss',    '#cc0000', 'CNN Sans, sans-serif',    'center-left',  'general', 5, 60),
+  ('NBC News',         'nbcnews.com',        'https://feeds.nbcnews.com/nbcnews/public/news',    'rss',    '#F37021', 'Arial, sans-serif',       'center',       'general', 5, 60),
   ('interest.co.nz',   'interest.co.nz',     'https://www.interest.co.nz/rss',                  'rss',    '#2d6a3f', 'Arial, sans-serif',       'center',       'business',6, 120),
   ('Ars Technica',     'arstechnica.com',    'https://feeds.arstechnica.com/arstechnica/index', 'rss',    '#ef4624', 'Gentona, sans-serif',     'center',       'tech',    6, 60),
   ('The Register',     'theregister.com',    'https://www.theregister.com/headlines.atom',       'rss',    '#c00',    'Trebuchet MS, sans-serif','center',       'tech',    6, 60),
