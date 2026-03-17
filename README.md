@@ -2,6 +2,8 @@
 
 A self-hosted news aggregator that displays articles in a classic newspaper layout, with AI-powered political bias classification. Runs entirely in Docker — no local Node.js or Python required.
 
+![The Daily Digest front page](docs/screenshot.png)
+
 ---
 
 ## Features
@@ -9,6 +11,7 @@ A self-hosted news aggregator that displays articles in a classic newspaper layo
 - **Newspaper front page** — UnifrakturMaguntia masthead, Bootstrap grid layout, breaking news banner, doom-scroll break
 - **RSS ingestion** — crawls 15 pre-seeded sources every 2 minutes; scrapes full article content via cheerio; falls back to archive.ph / Wayback Machine for paywalled content; video stream URLs are rejected at parse time so only real images are stored
 - **Bias + topic classification** — local Ollama LLM (`llama3.2`) tags each article with a political bias (left → right) and a set of topic tags drawn from the article's full body text (up to 4,000 chars); falls back to Claude Haiku if Ollama is unavailable; batches of 50 at concurrency 5 every 5 seconds
+- **AI writing trope detector** — pure regex scorer (22 pattern categories) detects AI-generated writing signatures in every article; score displayed as a colour-coded badge on article cards (amber < 10%, orange 10–25%, red ≥ 25%); runs entirely client-side with no LLM dependency
 - **Configurable classifier tags** — manage the topic tag vocabulary from the admin panel; changes take effect on the next batch without a restart
 - **Filter panel** — left sidebar lets readers filter by source and/or topic tag; selections persist when navigating between archive days via URL query params
 - **Iran conflict sidebar** — right sidebar surfaces the latest Iran war coverage on every page (front page and day archive)
@@ -61,7 +64,8 @@ news/
 ├── classifier/                 # Bias + topic classification worker
 │   └── src/
 │       ├── index.ts            # Polls every 5s; batch 50; concurrency 5
-│       └── bias.ts             # Ollama → Claude Haiku fallback
+│       ├── bias.ts             # Ollama → Claude Haiku fallback
+│       └── tropes.ts           # Regex-based AI writing trope scorer (22 categories)
 ├── web/                        # Next.js application
 │   └── src/
 │       ├── app/
@@ -89,7 +93,7 @@ news/
 │       │   │   └── crawlers/{status,crawl-all}/
 │       │   └── components/
 │       │       ├── Masthead.tsx
-│       │       ├── ArticleCard.tsx         # lead / secondary / brief variants
+│       │       ├── ArticleCard.tsx         # lead / secondary / brief variants; source, AI-gauge & bias badges
 │       │       ├── IranSidebar.tsx         # Iran conflict right sidebar
 │       │       └── SourceBadge.tsx
 │       └── lib/
@@ -269,7 +273,8 @@ curl -X POST http://localhost:5333/api/crawlers/crawl-all \
 2. It sends the article title and up to 4,000 characters of body content (falling back to summary, then title) to **Ollama** (`llama3.2`) with a prompt requesting a political bias tag and a list of matching topic tags.
 3. Topic tags are loaded from the `app_settings` table (editable via the admin panel) and fall back to a built-in default set.
 4. If Ollama is unavailable, it falls back to **Claude Haiku** via the Anthropic API.
-5. The `bias_tag` and `content_tags` columns are updated and `classified` is set to `true`.
+5. In parallel, the **trope scorer** runs 22 regex pattern categories over the same text to produce a `trope_score` (0–100). This step requires no network calls and always succeeds.
+6. The `bias_tag`, `content_tags`, and `trope_score` columns are updated and `classified` is set to `true`.
 
 ### Authentication
 
